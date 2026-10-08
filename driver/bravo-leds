@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# bravo-leds - switch Honeycomb Bravo lights via /sys/class/leds/bravo:*
+#
+#   bravo-leds list                 show every light and its state
+#   bravo-leds on  NAME [NAME...]   turn lights on
+#   bravo-leds off NAME [NAME...]   turn lights off
+#   bravo-leds all-on | all-off
+#   bravo-leds test                 light each LED in turn
+#
+# NAME is the full LED name (bravo:green:gear_left), or the function part
+# (gear_left matches both its green and red LED; master_warning, ap_hdg, ...).
+set -euo pipefail
+
+LEDDIR=${BRAVO_LEDDIR:-/sys/class/leds}
+
+leds() {
+	local d
+	for d in "$LEDDIR"/bravo:*; do
+		[[ -e $d ]] && echo "${d##*/}"
+	done
+}
+
+die() { echo "bravo-leds: $*" >&2; exit 1; }
+
+[[ -n $(leds) ]] || die "no bravo LEDs found (is hid-honeycomb-bravo loaded and the Bravo plugged in?)"
+
+match() {
+	local want=$1 led found=0
+	for led in $(leds); do
+		if [[ $led == "$want" || ${led##*:} == "$want" ]]; then
+			echo "$led"
+			found=1
+		fi
+	done
+	((found)) || die "unknown LED '$want' (try: bravo-leds list)"
+}
+
+set_led() {
+	echo "$2" > "$LEDDIR/$1/brightness" || die "cannot write $LEDDIR/$1/brightness (are you in plugdev and is the udev rule installed?)"
+}
+
+cmd=${1:-list}
+shift || true
+
+case $cmd in
+list)
+	for led in $(leds); do
+		printf '%-30s %s\n' "$led" "$( (( $(cat "$LEDDIR/$led/brightness") )) && echo on || echo off)"
+	done
+	;;
+on|off)
+	(($#)) || die "usage: bravo-leds $cmd NAME [NAME...]"
+	val=0; [[ $cmd == on ]] && val=1
+	for name in "$@"; do
+		targets=$(match "$name") || exit 1
+		for led in $targets; do
+			set_led "$led" "$val"
+		done
+	done
+	;;
+all-on|all-off)
+	val=0; [[ $cmd == all-on ]] && val=1
+	for led in $(leds); do set_led "$led" "$val"; done
+	;;
+test)
+	for led in $(leds); do set_led "$led" 0; done
+	for led in $(leds); do
+		echo "$led"
+		set_led "$led" 1
+		sleep 0.3
+		set_led "$led" 0
+	done
+	;;
+-h|--help|help)
+	sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
+	;;
+*)
+	die "unknown command '$cmd' (try: bravo-leds help)"
+	;;
+esac
