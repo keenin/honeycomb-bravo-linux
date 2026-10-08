@@ -1,0 +1,13 @@
+# Kernel module build artifacts
+*.ko
+*.o
+*.mod*
+.*.cmd
+Module.symvers
+modules.order
+.tmp_versions/
+
+# X-Plane plugin build output, and the SDK (downloaded, not vendored)
+xplane-plugin/build/
+xplane-plugin/SDK/
+*.xpl

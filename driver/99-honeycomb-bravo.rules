@@ -1,0 +1,12 @@
+# Honeycomb Bravo Throttle Quadrant (USB 294b:1901)
+# Install to /etc/udev/rules.d/ so members of "plugdev" can drive the lights
+# without root.
+
+# Raw HID node (used by hidapi-based tools such as FlyWithLua helpers).
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="294b", ATTRS{idProduct}=="1901", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+
+# LED class devices created by the hid-honeycomb-bravo driver
+# (/sys/class/leds/bravo:*): let plugdev write brightness and trigger.
+ACTION=="add", SUBSYSTEM=="leds", DRIVERS=="honeycomb-bravo", \
+  RUN+="/usr/bin/chgrp plugdev /sys%p/brightness /sys%p/trigger", \
+  RUN+="/usr/bin/chmod g+w /sys%p/brightness /sys%p/trigger"
